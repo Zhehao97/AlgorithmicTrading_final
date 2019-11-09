@@ -10,8 +10,8 @@ from simtools import log_message
 # Record a trade in our trade array
 def record_trade( trade_df, idx, signal, usd_ir, jpy_ir, fx_rate, equity, position, unreal_pnl, real_pnl):
     trade_df.loc[ idx ][ 'Signal' ] = signal
-    trade_df.loc[ idx ][ 'USD_IR(%)' ] = usd_ir
-    trade_df.loc[ idx ][ 'JPY_IR(%)' ] = jpy_ir
+    trade_df.loc[ idx ][ 'USD_IR' ] = usd_ir
+    trade_df.loc[ idx ][ 'JPY_IR' ] = jpy_ir
     trade_df.loc[ idx ][ 'FX_Rate' ] = fx_rate
     trade_df.loc[ idx ][ 'Equity' ] = equity
     trade_df.loc[ idx ][ 'Asset Pos' ] = position
@@ -50,7 +50,7 @@ def algo_loop( total_data, trading_period = 30 ):
 
     prev_index = 0
 
-    trades = pd.DataFrame(columns=['Signal', 'USD_IR(%)', 'JPY_IR(%)', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_PnL', 'Real_PnL'],
+    trades = pd.DataFrame(columns=['Signal', 'USD_IR', 'JPY_IR', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_PnL', 'Real_PnL'],
                           index=total_data.index)
 
     for index, row in total_data.iterrows():
