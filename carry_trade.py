@@ -1,16 +1,14 @@
-import datetime as dt
+import datetime
 import numpy as np
 import pandas as pd
 import time
 import sys
 
-from holidays_jp import CountryHolidays as hol
 from simtools import log_message
-from date_function import holiday_adjust
 
 
 # Record a trade in our trade array
-def record_trade(trade_df, idx, signal, usd_ir, jpy_ir, fx_rate, equity, position, unreal_pnl, real_pnl):
+def record_trade( trade_df, idx, signal, usd_ir, jpy_ir, fx_rate, equity, position, unreal_pnl, real_pnl):
     trade_df.loc[ idx ][ 'Signal' ] = signal
     trade_df.loc[ idx ][ 'USD_IR' ] = usd_ir
     trade_df.loc[ idx ][ 'JPY_IR' ] = jpy_ir
@@ -27,8 +25,8 @@ def calculate_pnl( leverage, r_foreign , r_domestic, rate_open, rate_close):
 
 
 # MAIN ALGO LOOP
-def algo_loop(total_data, trading_period = 30):
-    log_message('Beginning Carry-Trade Strategy run')
+def algo_loop( total_data, trading_period = 30 ):
+    log_message( 'Beginning Carry-Trade Strategy run' )
 
     # capital initialization
     leverage = 2.0
@@ -95,11 +93,11 @@ def algo_loop(total_data, trading_period = 30):
                 r_domestic = usd_ir
 
                 # calculate unrealized pnl
-                unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
+                unreal_pnl = calculate_pnl( leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
+                record_trade( trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_pnl=unreal_pnl, real_pnl=real_pnl)
 
             elif signal > 0: # borrow JPY and invest in
@@ -114,17 +112,17 @@ def algo_loop(total_data, trading_period = 30):
                 r_domestic = jpy_ir
 
                 # calculate unrealized pnl
-                unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
+                unreal_pnl = calculate_pnl( leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
+                record_trade( trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_pnl=unreal_pnl, real_pnl=real_pnl)
 
             else:
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
+                record_trade( trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_pnl=unreal_pnl, real_pnl=real_pnl)    
                 continue
 
@@ -132,20 +130,20 @@ def algo_loop(total_data, trading_period = 30):
         else:
 
             # calculate how long we have hold the position
-            holding_period = int(str(index - trading_day)[:-14])
+            holding_period = int(str( index - trading_day )[:-14])
 
             # close the position, return the money we borrowed
             if holding_period >= trading_period:
 
                 # calculate pnl
                 unreal_pnl = 0
-                temp_pnl = calculate_pnl(leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
+                temp_pnl = calculate_pnl( leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
                                                rate_open=rate_open, rate_close=spot_fx_rate)
-                real_pnl = (1 + real_pnl) * (1 + temp_pnl) - 1
+                real_pnl = ( 1 + real_pnl ) * ( 1 + temp_pnl ) - 1
 
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
+                record_trade( trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_pnl=unreal_pnl, real_pnl=real_pnl)
 
                 # refresh the variables
@@ -157,11 +155,11 @@ def algo_loop(total_data, trading_period = 30):
             else:
 
                 # calculate unrealized pnl
-                unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
+                unreal_pnl = calculate_pnl( leverage=leverage, r_foreign=r_foregin , r_domestic=r_domestic,
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
+                record_trade( trade_df=trades, idx=index, signal=signal, usd_ir=usd_ir, jpy_ir=jpy_ir, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_pnl=unreal_pnl, real_pnl=real_pnl)
 
 
