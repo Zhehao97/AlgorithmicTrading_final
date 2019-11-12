@@ -1,6 +1,6 @@
 from holidays_jp import CountryHolidays as hol
 import datetime as dt
-
+from dateutil.relativedelta import relativedelta
 
 def holiday_adjust(trade_date, delta):
     forward_date = trade_date + delta
@@ -17,5 +17,4 @@ def holiday_adjust(trade_date, delta):
     elif forward_date.weekday() >= 5:
         forward_date = forward_date + dt.timedelta(days=1)
         holiday_adjust(forward_date, dt.timedelta())
-    else:
-        return forward_date
+    return forward_date
