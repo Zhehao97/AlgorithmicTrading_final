@@ -8,9 +8,10 @@ from simtools import log_message
 from date_function_v2 import holiday_adjust
 
 # Record a trade in our trade array
-def record_trade( trade_df, idx, signal, fx_name, foregin_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r):
+def record_trade( trade_df, idx, signal, fx_name, period_name ,foregin_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r):
     trade_df.loc[idx]['Signal'] = signal
     trade_df.loc[idx]['FX_name'] = fx_name
+    trade_df.loc[idx]['Period'] = period_name
     trade_df.loc[idx]['Foreign_IR'] = foregin_ir
     trade_df.loc[idx]['Domestic_IR'] = domestic_ir
     trade_df.loc[idx]['FX_Rate'] = fx_rate
@@ -95,7 +96,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
     # deal with multiple day error
     prev_index = 0
 
-    trades = pd.DataFrame(columns=['Signal', 'FX_name', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_Return', 'Real_Return'], index=total_data.index)
+    trades = pd.DataFrame(columns=['Signal', 'FX_name','Period', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_Return', 'Real_Return'], index=total_data.index)
 
     for index, row in total_data.iterrows():
 
@@ -122,8 +123,9 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                 # trading period
                 trading_period = dt.timedelta(days=max_period)
 
-                # record trading fx name
+                # record trading fx name and period
                 fx_name = max_fx
+                period_name = max_period_name
 
                 # record trading day
                 start_day = index
@@ -138,13 +140,13 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, period_name=period_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
             else:
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, period_name=period_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
                 continue
 
@@ -162,7 +164,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                 equity *= (1 + temp_pnl)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, period_name=period_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
                 # refresh the variables
@@ -178,7 +180,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, period_name=period_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
 
