@@ -5,11 +5,12 @@ import time
 import sys
 
 from simtools import log_message
-from date_function import holiday_adjust
+from date_function_v2 import holiday_adjust
 
 # Record a trade in our trade array
-def record_trade( trade_df, idx, signal, foregin_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r):
+def record_trade( trade_df, idx, signal, fx_name, foregin_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r):
     trade_df.loc[idx]['Signal'] = signal
+    trade_df.loc[idx]['FX_name'] = fx_name
     trade_df.loc[idx]['Foreign_IR'] = foregin_ir
     trade_df.loc[idx]['Domestic_IR'] = domestic_ir
     trade_df.loc[idx]['FX_Rate'] = fx_rate
@@ -20,12 +21,62 @@ def record_trade( trade_df, idx, signal, foregin_ir, domestic_ir, fx_rate, equit
     return
 
 
-def calculate_pnl( leverage, r_foreign , r_domestic, rate_open, rate_close):
+def calculate_pnl(leverage, r_foreign , r_domestic, rate_open, rate_close):
     return leverage * ((1 + r_foreign) * (rate_close - rate_open) / rate_open + r_foreign - r_domestic ) + r_domestic
 
 
+def cal_period_name(trading_day):
+    if trading_day == 7:
+        period_name = '1W'
+    elif trading_day == 30:
+        period_name = '1M'
+    elif trading_day == 60:
+        period_name = '2M'
+
+    return period_name
+
+def cal_rates_name(fx_name, period_name):
+    fx_libor_idx = str(fx_name) + '_LIBOR_' + str(period_name)
+    dstc_libor_idx = 'JPY_LIBOR_' + str(period_name)
+    spot_fx_rate_idx = str(fx_name) + '_Spot'
+    forward_fx_rate_idx = str(fx_name) + '_' + str(period_name)
+
+    return [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx]
+
+
+def find_max_signal(row_row, period_list, fx_list):
+    max_signal = 0
+    max_period = 0
+    max_fx = '-'
+
+    for i in range(len(period_list)):
+        for j in range(len(fx_list)):
+            # index
+            period_name = cal_period_name(period_list[i])
+            fx_name = fx_list[j]
+            rates_name = cal_rates_name(fx_name, period_name)
+
+            # rates
+            [r_foregin, r_domestic] = row_row[rates_name[:2]] / 100  # 0.05 -> 0.05%, not 5%
+            [spot_fx_rate, forward_fx_rate] = row_row[rates_name[2:]]
+
+            # signals
+            foregin_signal = 1 + r_foregin * period_list[i] / 360  # signals on different period have different scale
+            domestic_signal = (1 + r_domestic * period_list[i] / 360) * spot_fx_rate / forward_fx_rate
+            signal = (foregin_signal - domestic_signal) / domestic_signal  # by doing the division, we can compare signals on different period
+
+            if signal > max_signal:
+                max_signal = signal
+                max_period = period_list[i]
+                max_fx = fx_name
+
+    return [max_signal, max_period, max_fx]
+
+
+
 # MAIN ALGO LOOP
-def algo_loop(total_data, foreign_index, domestic_index, fx_index, forward_index, trading_period, leverage = 2.0):
+def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
+
     log_message('Beginning Carry-Trade Strategy run')
 
     # capital initialization
@@ -41,41 +92,38 @@ def algo_loop(total_data, foreign_index, domestic_index, fx_index, forward_index
     real_pnl = 0
     temp_pnl = 0
 
+    # deal with multiple day error
     prev_index = 0
 
-    trades = pd.DataFrame(columns=['Signal', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_Return', 'Real_Return'],
-                          index=total_data.index)
+    trades = pd.DataFrame(columns=['Signal', 'FX_name', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity', 'Asset Pos', 'Unreal_Return', 'Real_Return'], index=total_data.index)
 
     for index, row in total_data.iterrows():
 
-        # FX rates
-        spot_fx_rate = row[fx_index]
-        forward_fx_rate = row[forward_index]
-
-        # deal with fx_rate = 0 situation
-        if (spot_fx_rate == 0) or (forward_fx_rate == 0):
-            continue
-
-        # deal with multiple day error
-        if prev_index == index:
-            continue
-
-        # Interest rates
-        r_foregin = row[foreign_index]/100
-        r_domestic = row[domestic_index]/100
-
-        # Signals
-        trading_day = int(str(trading_period)[:-14])
-        foreign_signal = 1 + r_foregin * trading_day / 360
-        domestic_signal = (1 + r_domestic * trading_day / 360) * spot_fx_rate / forward_fx_rate
-        signal = foreign_signal - domestic_signal
-
-        #print(usd_signal, jpy_signal, signal)
+        # find max signal
+        [max_signal, max_period, max_fx] = find_max_signal(row_row=row, period_list=period_list, fx_list=fx_list)
+        # max_signal -> float
+        # max_period -> int
+        # max_fx -> str
+        max_period_name = cal_period_name(trading_day=max_period) # -> str
 
         # position = 0
         if current_pos == 0:
 
-            if foreign_signal > domestic_signal: # invest our money in US market
+            if max_signal > 0: # invest our money in US market
+
+                # Interest rates idx
+                [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx] = cal_rates_name(fx_name=max_fx, period_name=max_period_name)
+                # rates
+                r_foregin = row[fx_libor_idx] / 100
+                r_domestic = row[dstc_libor_idx] / 100
+                spot_fx_rate = row[spot_fx_rate_idx]
+                forward_fx_rate = row[forward_fx_rate_idx]
+
+                # trading period
+                trading_period = dt.timedelta(days=max_period)
+
+                # record trading fx name
+                fx_name = max_fx
 
                 # record trading day
                 start_day = index
@@ -90,13 +138,13 @@ def algo_loop(total_data, foreign_index, domestic_index, fx_index, forward_index
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
             else:
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
                 continue
 
@@ -113,9 +161,8 @@ def algo_loop(total_data, foreign_index, domestic_index, fx_index, forward_index
                 real_pnl = (1 + real_pnl) * (1 + temp_pnl) - 1
                 equity *= (1 + temp_pnl)
 
-
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
                 # refresh the variables
@@ -131,13 +178,12 @@ def algo_loop(total_data, foreign_index, domestic_index, fx_index, forward_index
                                                rate_open=rate_open, rate_close=spot_fx_rate)
 
                 # record trading info
-                record_trade(trade_df=trades, idx=index, signal=signal, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
+                record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=fx_name, foregin_ir=r_foregin, domestic_ir=r_domestic, fx_rate=spot_fx_rate,
                                  equity=equity, position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
 
         prev_index = index
 
     log_message('Algo run complete.')
-
 
     return trades
