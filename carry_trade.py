@@ -107,18 +107,20 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
         # max_fx -> str
         max_period_name = cal_period_name(trading_day=max_period) # -> str
 
+        # Interest rates idx
+        [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx] = cal_rates_name(fx_name=max_fx,
+                                                                                               period_name=max_period_name)
+        # rates
+        r_foregin = row[fx_libor_idx] / 100
+        r_domestic = row[dstc_libor_idx] / 100
+        spot_fx_rate = row[spot_fx_rate_idx]
+        forward_fx_rate = row[forward_fx_rate_idx]
+
+
         # position = 0
         if current_pos == 0:
 
             if max_signal > 0: # invest our money in US market
-
-                # Interest rates idx
-                [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx] = cal_rates_name(fx_name=max_fx, period_name=max_period_name)
-                # rates
-                r_foregin = row[fx_libor_idx] / 100
-                r_domestic = row[dstc_libor_idx] / 100
-                spot_fx_rate = row[spot_fx_rate_idx]
-                forward_fx_rate = row[forward_fx_rate_idx]
 
                 # trading period
                 trading_period = dt.timedelta(days=max_period)
@@ -169,9 +171,11 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
 
                 # refresh the variables
                 current_pos = 0
-                trading_day = 0
                 r_foregin = 0
                 r_domestic = 0
+                rate_open = 0
+                fx_name = '-'
+                period_name = '-'
 
             else:
 
