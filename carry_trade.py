@@ -42,8 +42,11 @@ def cal_rates_name(fx_name, period_name):
     dstc_libor_idx = 'JPY_LIBOR_' + str(period_name)
     spot_fx_rate_idx = str(fx_name) + '_Spot'
     forward_fx_rate_idx = str(fx_name) + '_' + str(period_name)
+    ask_fx_rate_idx = 'JPY_' + str(fx_name) + '_Ask'
+    bid_fx_rate_idx = 'JPY_' + str(fx_name) + '_Bid'
 
-    return [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx]
+    return [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx,
+            ask_fx_rate_idx, bid_fx_rate_idx]
 
 
 def find_max_signal(row_row, period_list, fx_list):
@@ -62,10 +65,10 @@ def find_max_signal(row_row, period_list, fx_list):
 
                 # rates
                 [r_foreign, r_domestic] = row_row[rates_name[:2]] / 100  # 0.05 -> 0.05%, not 5%
-                [spot_fx_rate, forward_fx_rate] = row_row[rates_name[2:]]
+                [spot_fx_rate, forward_fx_rate, ask_fx_rate_idx, bid_fx_rate_idx] = row_row[rates_name[2:]]
 
                 # signals
-                foreign_signal = (1 + r_foreign * period_list[i] / 360) * forward_fx_rate /  spot_fx_rate
+                foreign_signal = (1 + r_foreign * period_list[i] / 360) * forward_fx_rate / spot_fx_rate
                 domestic_signal = (1 + r_domestic * period_list[i] / 360)
                 signal = (foreign_signal - domestic_signal)
 
@@ -79,7 +82,7 @@ def find_max_signal(row_row, period_list, fx_list):
 
 
 # MAIN ALGO LOOP
-def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
+def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
     log_message('Beginning Carry-Trade Strategy run')
 
@@ -115,6 +118,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
             # find max signal
             [max_signal, max_period, max_fx] = find_max_signal(row_row=row, period_list=period_list, fx_list=fx_list)
             max_period_name = cal_period_name(trading_day=max_period)  # max_signal -> float ; max_period -> int ; max_fx -> str
+            #print(max_signal)
 
             if max_signal > 0:
 
@@ -128,20 +132,29 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                 end_day = holiday_adjust(start_day, dt.timedelta(days=trade_period))
 
                 # Interest rates idx
-                [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx] = cal_rates_name(fx_name=trade_fx, period_name=trade_period_name)
+                [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx,
+                 forward_fx_rate_idx, ask_fx_rate_idx, bid_fx_rate_idx] = cal_rates_name(fx_name=trade_fx, period_name=trade_period_name)
 
                 # Interest rates
                 trade_r_f = row[fx_libor_idx] / 100
                 trade_r_d = row[dstc_libor_idx] / 100
-                trade_fx_rate = row[spot_fx_rate_idx]
+
+                if trade_fx == 'JPY':
+                    trade_fx_rate = 1
+                    trade_ask_fx_rate = 1
+                    trade_bid_fx_rate = 1
+                else:
+                    trade_fx_rate = row[spot_fx_rate_idx]
+                    trade_ask_fx_rate = row[ask_fx_rate_idx]
+                    trade_bid_fx_rate = row[bid_fx_rate_idx]
 
                 # update trading info
-                rate_open = trade_fx_rate
+                rate_open = trade_ask_fx_rate
                 current_pos = equity * leverage
 
                 # calculate unrealized pnl
                 unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
-                                           rate_open=rate_open, rate_close=trade_fx_rate, trade_period=trade_period)
+                                           rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
 
                 # record trading info
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
@@ -149,18 +162,79 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                              position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
 
             else:
-                continue
 
-        # position > 0 or position < 0
-        else:
+                if JPY == 1:
+                    # record trading fx name and period
+                    trade_fx = 'JPY'                        # e.g. AUD
+                    trade_period = 7                        # e.g. 60
+                    trade_period_name = '1W'                # e.g. 2M
+
+                    # record trading day
+                    start_day = index
+                    end_day = holiday_adjust(start_day, dt.timedelta(days=trade_period))
+
+                    # Interest rates idx
+                    [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx,
+                     forward_fx_rate_idx, ask_fx_rate_idx, bid_fx_rate_idx] = cal_rates_name(fx_name=trade_fx,
+                                                                                             period_name=trade_period_name)
+                    # Interest rates
+                    trade_r_f = row[fx_libor_idx] / 100
+                    trade_r_d = row[dstc_libor_idx] / 100
+
+                    if trade_fx == 'JPY':
+                        trade_fx_rate = 1
+                        trade_ask_fx_rate = 1
+                        trade_bid_fx_rate = 1
+                    else:
+                        trade_fx_rate = row[spot_fx_rate_idx]
+                        trade_ask_fx_rate = row[ask_fx_rate_idx]
+                        trade_bid_fx_rate = row[bid_fx_rate_idx]
+
+
+                    if trade_r_d > 0:
+
+                        # update trading info
+                        rate_open = trade_ask_fx_rate
+                        current_pos = equity
+
+                        # calculate unrealized pnl
+                        unreal_pnl = calculate_pnl(leverage=1, r_foreign=trade_r_f, r_domestic=trade_r_d,
+                                                   rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
+
+                        # record trading info
+                        record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
+                                     foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
+                                     position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
+                    else:
+                        # record trading info
+                        record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name='-', period_name='-',
+                                     foreign_ir=0, domestic_ir=0, fx_rate=1, equity=equity,
+                                     position=0, unreal_r=unreal_pnl, real_r=real_pnl)
+                else:
+                    # record trading info
+                    record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name='-', period_name='-',
+                                 foreign_ir=0, domestic_ir=0, fx_rate=1, equity=equity,
+                                 position=0, unreal_r=unreal_pnl, real_r=real_pnl)
+
+        else:   # position < 0
 
             # Interest rates idx
-            [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx] = cal_rates_name(fx_name=trade_fx, period_name=trade_period_name)
+            [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx,
+             forward_fx_rate_idx, ask_fx_rate_idx, bid_fx_rate_idx] = cal_rates_name(fx_name=trade_fx,
+                                                                                     period_name=trade_period_name)
 
             # Interest rates
             trade_r_f = row[fx_libor_idx] / 100
             trade_r_d = row[dstc_libor_idx] / 100
-            trade_fx_rate = row[spot_fx_rate_idx]
+
+            if trade_fx == 'JPY':
+                trade_fx_rate = 1
+                trade_ask_fx_rate = 1
+                trade_bid_fx_rate = 1
+            else:
+                trade_fx_rate = row[spot_fx_rate_idx]
+                trade_ask_fx_rate = row[ask_fx_rate_idx]
+                trade_bid_fx_rate = row[bid_fx_rate_idx]
 
             # close the position, return the money we borrowed
             if index >= end_day:
@@ -168,7 +242,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
                 # calculate pnl
                 unreal_pnl = 0
                 temp_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
-                                         rate_open=rate_open, rate_close=trade_fx_rate, trade_period=trade_period)
+                                         rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
                 real_pnl = (1 + real_pnl) * (1 + temp_pnl) - 1
                 equity *= (1 + temp_pnl)
 
@@ -189,7 +263,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0):
             else:
                 # calculate unrealized pnl
                 unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
-                                           rate_open=rate_open, rate_close=trade_fx_rate, trade_period=trade_period)
+                                           rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
 
                 # record trading info
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
