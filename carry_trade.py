@@ -80,7 +80,6 @@ def find_max_signal(row_row, period_list, fx_list):
     return [max_signal, max_period, max_fx]
 
 
-
 # MAIN ALGO LOOP
 def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
