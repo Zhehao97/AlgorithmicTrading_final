@@ -8,7 +8,7 @@ from simtools import log_message
 from date_function_v2 import holiday_adjust
 
 # Record a trade in our trade array
-def record_trade( trade_df, idx, signal, fx_name, period_name ,foreign_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r):
+def record_trade( trade_df, idx, signal, fx_name, period_name ,foreign_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r, drawdown):
     trade_df.loc[idx]['Signal'] = signal
     trade_df.loc[idx]['FX_name'] = fx_name
     trade_df.loc[idx]['Period'] = period_name
@@ -19,6 +19,7 @@ def record_trade( trade_df, idx, signal, fx_name, period_name ,foreign_ir, domes
     trade_df.loc[idx]['Asset Pos'] = position
     trade_df.loc[idx]['Unreal_Return'] = unreal_r
     trade_df.loc[idx]['Real_Return'] = real_r
+    trade_df.loc[idx]['Drawdown'] = drawdown
     return
 
 
@@ -98,8 +99,9 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
     real_pnl = 0
     temp_pnl = 0
 
-    # deal with multiple day error
-    prev_index = 0
+    # drawdown
+    max_return = 0
+    max_drawdown = 0
 
     # trade info
     trade_fx = '-'
@@ -107,7 +109,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
     trade_period_name = '-'
 
     trades = pd.DataFrame(columns=['Signal', 'FX_name','Period', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity',
-                                   'Asset Pos', 'Unreal_Return', 'Real_Return'], index=total_data.index)
+                                   'Asset Pos', 'Unreal_Return', 'Real_Return', 'Drawdown'], index=total_data.index)
 
     for index, row in total_data.iterrows():
 
@@ -158,7 +160,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                 # record trading info
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
                              foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
-                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
+                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
 
             else:
 
@@ -203,17 +205,17 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                         # record trading info
                         record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
                                      foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
-                                     position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
+                                     position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
                     else:
                         # record trading info
                         record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name='-', period_name='-',
                                      foreign_ir=0, domestic_ir=0, fx_rate=1, equity=equity,
-                                     position=0, unreal_r=unreal_pnl, real_r=real_pnl)
+                                     position=0, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
                 else:
                     # record trading info
                     record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name='-', period_name='-',
                                  foreign_ir=0, domestic_ir=0, fx_rate=1, equity=equity,
-                                 position=0, unreal_r=unreal_pnl, real_r=real_pnl)
+                                 position=0, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
 
         else:   # position < 0
 
@@ -245,10 +247,17 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                 real_pnl = (1 + real_pnl) * (1 + temp_pnl) - 1
                 equity *= (1 + temp_pnl)
 
+                # record drawdown
+                max_drawdown = real_pnl - max_return
+
+                # update max return
+                if real_pnl > max_return:
+                    max_return = real_pnl
+
                 # record trading info
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
                              foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
-                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
+                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
 
                 # refresh the variables
                 current_pos = 0
@@ -267,7 +276,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                 # record trading info
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
                              foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
-                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl)
+                             position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
 
 
     log_message('Algo run complete.')
