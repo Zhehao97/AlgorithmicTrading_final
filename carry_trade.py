@@ -113,6 +113,9 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
     for index, row in total_data.iterrows():
 
+        if equity < 0:
+            break
+
         # position = 0
         if current_pos == 0:
 
