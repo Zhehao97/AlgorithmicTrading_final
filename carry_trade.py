@@ -169,9 +169,9 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
                 if JPY == 1:
                     # record trading fx name and period
-                    trade_fx = 'JPY'                        # e.g. AUD
-                    trade_period = 7                        # e.g. 60
-                    trade_period_name = '1W'                # e.g. 2M
+                    trade_fx = 'JPY'                        
+                    trade_period = 7
+                    trade_period_name = '1W'
 
                     # record trading day
                     start_day = index
