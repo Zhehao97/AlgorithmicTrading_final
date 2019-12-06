@@ -7,7 +7,7 @@ import sys
 from simtools import log_message
 from date_function_v2 import holiday_adjust
 
-# Record a trade in our trade array
+# Record a trade in our trade book
 def record_trade( trade_df, idx, signal, fx_name, period_name ,foreign_ir, domestic_ir, fx_rate, equity, position, unreal_r, real_r, drawdown):
     trade_df.loc[idx]['Signal'] = signal
     trade_df.loc[idx]['FX_name'] = fx_name
@@ -22,13 +22,13 @@ def record_trade( trade_df, idx, signal, fx_name, period_name ,foreign_ir, domes
     trade_df.loc[idx]['Drawdown'] = drawdown
     return
 
-
+# calculate the realized and unreaelized pnl
 def calculate_pnl(leverage, r_foreign, r_domestic, rate_open, rate_close, trade_period):
     r_f = r_foreign * trade_period / 360
     r_d = r_domestic * trade_period / 360
     return leverage * ((1 + r_f) * ((rate_close - rate_open) / rate_open) + r_f - r_d) + r_d
 
-
+# convert datetime from int to str
 def cal_period_name(trading_day):
     if trading_day == 7:
         return '1W'
@@ -37,7 +37,7 @@ def cal_period_name(trading_day):
     elif trading_day == 60:
         return '2M'
 
-
+# generate the column names of each fx and libor rate
 def cal_rates_name(fx_name, period_name):
     fx_libor_idx = str(fx_name) + '_LIBOR_' + str(period_name)
     dstc_libor_idx = 'JPY_LIBOR_' + str(period_name)
@@ -49,7 +49,7 @@ def cal_rates_name(fx_name, period_name):
     return [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx, forward_fx_rate_idx,
             ask_fx_rate_idx, bid_fx_rate_idx]
 
-
+# find max signal and return the info of corresponding portfolio
 def find_max_signal(row_row, period_list, fx_list):
     max_signal = -10000
     max_period = 0
@@ -82,15 +82,14 @@ def find_max_signal(row_row, period_list, fx_list):
 
 
 # MAIN ALGO LOOP
-def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
+def algo_loop(total_data, fx_list, period_list, leverage=2.0, jpy=0):
 
     log_message('Beginning Carry-Trade Strategy run')
 
-    # capital initialization
-    # leverage = 2.0
+    # equity initialization
     equity = 10000
 
-    # trading info initialization
+    # position info initialization
     current_pos = 0
     rate_open = 0
 
@@ -99,30 +98,29 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
     real_pnl = 0
     temp_pnl = 0
 
-    # drawdown
+    # perform analysis initialization
     max_return = 0
     max_drawdown = 0
 
-    # trade info
+    # portfolio info initialziation
     trade_fx = '-'
     trade_period = 0
     trade_period_name = '-'
 
+    # set up the trade book
     trades = pd.DataFrame(columns=['Signal', 'FX_name','Period', 'Foreign_IR', 'Domestic_IR', 'FX_Rate', 'Equity',
                                    'Asset Pos', 'Unreal_Return', 'Real_Return', 'Drawdown'], index=total_data.index)
 
     for index, row in total_data.iterrows():
 
-        if equity < 0: # We've gone insolvent
+        if equity < 0:  # We've gone insolvent
             break
 
-        # position = 0
         if current_pos == 0:
 
             # find max signal
             [max_signal, max_period, max_fx] = find_max_signal(row_row=row, period_list=period_list, fx_list=fx_list)
-            max_period_name = cal_period_name(trading_day=max_period)  # max_signal -> float ; max_period -> int ; max_fx -> str
-            #print(max_signal)
+            max_period_name = cal_period_name(trading_day=max_period)
 
             if max_signal > 0:
 
@@ -167,7 +165,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
             else:
 
-                if JPY == 1:
+                if jpy == 1:  # invest in local interest market if no fx signal appears
                     # record trading fx name and period
                     trade_fx = 'JPY'                        
                     trade_period = 7
@@ -189,13 +187,13 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                         trade_fx_rate = 1
                         trade_ask_fx_rate = 1
                         trade_bid_fx_rate = 1
+
                     else:
                         trade_fx_rate = row[spot_fx_rate_idx]
                         trade_ask_fx_rate = row[ask_fx_rate_idx]
                         trade_bid_fx_rate = row[bid_fx_rate_idx]
 
-
-                    if trade_r_d > 0:
+                    if trade_r_d > 0: # invest only when the local interest rate > 0
 
                         # update trading info
                         rate_open = trade_ask_fx_rate
@@ -220,7 +218,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                                  foreign_ir=0, domestic_ir=0, fx_rate=1, equity=equity,
                                  position=0, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
 
-        else:   # position < 0
+        else:  # position != 0
 
             # Interest rates idx
             [fx_libor_idx, dstc_libor_idx, spot_fx_rate_idx,
@@ -280,7 +278,6 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
                 record_trade(trade_df=trades, idx=index, signal=max_signal, fx_name=trade_fx, period_name=trade_period_name,
                              foreign_ir=trade_r_f, domestic_ir=trade_r_d, fx_rate=trade_fx_rate, equity=equity,
                              position=current_pos, unreal_r=unreal_pnl, real_r=real_pnl, drawdown=max_drawdown)
-
 
     log_message('Algo run complete.')
 
