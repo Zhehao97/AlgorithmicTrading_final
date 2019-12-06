@@ -57,7 +57,7 @@ def find_max_signal(row_row, period_list, fx_list):
 
     for i in range(len(period_list)):
         for j in range(len(fx_list)):
-            if period_list[i] == 7 and fx_list[j] == 'AUD':
+            if period_list[i] == 7 and fx_list[j] == 'AUD': # fix for missing data
                 continue
             else:
                 period_name = cal_period_name(period_list[i])
@@ -113,7 +113,7 @@ def algo_loop(total_data, fx_list, period_list, leverage = 2.0, JPY=0):
 
     for index, row in total_data.iterrows():
 
-        if equity < 0:
+        if equity < 0: # We've gone insolvent
             break
 
         # position = 0
