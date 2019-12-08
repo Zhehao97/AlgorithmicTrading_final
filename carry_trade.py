@@ -151,10 +151,10 @@ def algo_loop(total_data, fx_list, period_list, leverage=2.0, jpy=0):
                     trade_bid_fx_rate = row[bid_fx_rate_idx]
 
                 # update trading info
-                rate_open = trade_ask_fx_rate
+                rate_open = trade_ask_fx_rate  # use ask price to buy -> Transaction Cost
                 current_pos = equity * leverage
 
-                # calculate unrealized pnl
+                # calculate unrealized pnl, use bid price to sell -> Transaction Cost
                 unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
                                            rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
 
@@ -196,10 +196,10 @@ def algo_loop(total_data, fx_list, period_list, leverage=2.0, jpy=0):
                     if trade_r_d > 0: # invest only when the local interest rate > 0
 
                         # update trading info
-                        rate_open = trade_ask_fx_rate
+                        rate_open = trade_ask_fx_rate  # use ask price to buy -> Transaction Cost
                         current_pos = equity
 
-                        # calculate unrealized pnl
+                        # calculate unrealized pnl, use bid price to sell -> Transaction Cost
                         unreal_pnl = calculate_pnl(leverage=1, r_foreign=trade_r_f, r_domestic=trade_r_d,
                                                    rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
 
@@ -241,7 +241,7 @@ def algo_loop(total_data, fx_list, period_list, leverage=2.0, jpy=0):
             # close the position, return the money we borrowed
             if index >= end_day:
 
-                # calculate pnl
+                # calculate pnl, use bid price to sell -> Transaction Cost
                 unreal_pnl = 0
                 temp_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
                                          rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
@@ -270,7 +270,7 @@ def algo_loop(total_data, fx_list, period_list, leverage=2.0, jpy=0):
                 trade_period_name = '-'
 
             else:
-                # calculate unrealized pnl
+                # calculate unrealized pnl, use bid price to sell -> Transaction Cost
                 unreal_pnl = calculate_pnl(leverage=leverage, r_foreign=trade_r_f, r_domestic=trade_r_d,
                                            rate_open=rate_open, rate_close=trade_bid_fx_rate, trade_period=trade_period)
 
